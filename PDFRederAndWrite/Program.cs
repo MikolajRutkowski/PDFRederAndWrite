@@ -17,6 +17,7 @@ namespace PDFReaderAndWrite
             string searchText = "Gadanina";
             string textToAdd = "Nowy tekst";
 
+            List<string> lines = new List<string>();
             try
             {
                 SearchAndAddTextToPDF(inputPath, outputPath, searchText, textToAdd);
