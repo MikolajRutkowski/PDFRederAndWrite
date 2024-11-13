@@ -1,13 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
 using iText.Kernel.Pdf;
 using iText.Kernel.Pdf.Canvas;
 using iText.Kernel.Font;
 using iText.IO.Font.Constants;
-using iText.Kernel.Pdf.Canvas.Parser.Data;
 using iText.Kernel.Pdf.Canvas.Parser;
-using System.Collections.Generic;
 using iText.Kernel.Pdf.Canvas.Parser.Listener;
 using iText.Kernel.Pdf.Canvas.Parser.Data;
+using iText.Forms;
 
 namespace PDFReaderAndWrite
 {
@@ -20,63 +20,67 @@ namespace PDFReaderAndWrite
 
     public class PdfHelper
     {
-        // Funkcja do rysowania kształtów (prostokąt, linia)
-        public static void DrawShape(PdfDocument pdf, float x, float y, float width, float height)
+        // Funkcja do odczytywania wszystkich tekstów z pól formularza PDF
+        public static List<string> ExtractFormFields(string filePath, bool withKey = false)
         {
-            PdfCanvas canvas = new PdfCanvas(pdf.GetFirstPage());
-
-            // Rysujemy prostokąt
-            canvas.SetStrokeColorRgb(0, 0, 1)
-                  .SetLineWidth(2f)
-                  .Rectangle(x, y, width, height)
-                  .Stroke();
-
-            // Rysujemy linię
-            canvas.MoveTo(x, y)
-                  .LineTo(x + width, y + height)
-                  .Stroke();
-        }
-
-        // Funkcja do dodawania tekstu (liczby) w określonym miejscu
-        public static void AddText(PdfDocument pdf, string text, float x, float y)
-        {
-            PdfCanvas canvas = new PdfCanvas(pdf.GetFirstPage());
-
-            // Ustawiamy czcionkę i rozmiar tekstu
-            PdfFont font = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
-            canvas.BeginText()
-                  .SetFontAndSize(font, 12)
-                  .MoveText(x, y)
-                  .ShowText(text)
-                  .EndText();
-        }
-        // Funkcja do odczytywania tekstu z pliku PDF wraz z jego współrzędnymi
-        public static List<PdfText> ExtractTextWithCoordinates(string filePath)
-        {
-            List<PdfText> extractedTexts = new List<PdfText>();
+            List<string> fieldValues = new List<string>();
 
             using (PdfReader reader = new PdfReader(filePath))
-            using (PdfDocument pdf = new PdfDocument(reader))
+            using (PdfDocument pdfDoc = new PdfDocument(reader))
             {
-                for (int pageNumber = 1; pageNumber <= pdf.GetNumberOfPages(); pageNumber++)
+                PdfAcroForm form = PdfAcroForm.GetAcroForm(pdfDoc, false);
+                if (form != null)
                 {
-                    var strategy = new CustomLocationTextExtractionStrategy();
-                    PdfCanvasProcessor processor = new PdfCanvasProcessor(strategy);
-                    processor.ProcessPageContent(pdf.GetPage(pageNumber));
-
-                    extractedTexts.AddRange(strategy.GetLocations());
+                    var fields = form.GetFormFields();
+                    foreach (var field in fields)
+                    {
+                        string fieldValue = field.Value.GetValueAsString();
+                        if (withKey) { fieldValues.Add($"{field.Key}: {fieldValue}"); }
+                        else { 
+                            
+                            fieldValues.Add(fieldValue); 
+                        }
+                        
+                    }
                 }
             }
 
-            return extractedTexts;
+            return fieldValues;
         }
-    }
 
+        // Funkcja do zamiany tekstu w polach formularza PDF
+        public static void ReplaceTextInFormFields(string inputPath, string outputPath, string searchText, string replacementText)
+        {
+            using (PdfReader reader = new PdfReader(inputPath))
+            using (PdfWriter writer = new PdfWriter(outputPath))
+            using (PdfDocument pdfDoc = new PdfDocument(reader, writer))
+            {
+                PdfAcroForm form = PdfAcroForm.GetAcroForm(pdfDoc, true);
+                if (form != null)
+                {
+                    var fields = form.GetFormFields();
+                    foreach (var field in fields)
+                    {
+                        string fieldValue = field.Value.GetValueAsString();
+                        if (fieldValue.Contains(searchText))
+                        {
+                            // Zamiana tekstu
+                            string newValue = fieldValue.Replace(searchText, replacementText);
+                            field.Value.SetValue(newValue);
+                        }
+                    }
+                }
+            }
+        }
+
+
+
+    }
 
     public class CustomLocationTextExtractionStrategy : IEventListener
     {
         private readonly List<PdfText> locations = new List<PdfText>();
-        private const float Tolerance = 5f; // Tolerancja odległości między fragmentami
+        private const float Tolerance = 5f;
 
         public void EventOccurred(IEventData data, EventType type)
         {
@@ -108,7 +112,6 @@ namespace PDFReaderAndWrite
         private List<PdfText> MergeTextFragments(List<PdfText> fragments)
         {
             List<PdfText> mergedTexts = new List<PdfText>();
-
             fragments.Sort((a, b) => a.Y != b.Y ? b.Y.CompareTo(a.Y) : a.X.CompareTo(b.X));
 
             PdfText current = null;
@@ -120,7 +123,6 @@ namespace PDFReaderAndWrite
                 }
                 else
                 {
-                    // Jeśli fragment znajduje się na tej samej linii i jest blisko poprzedniego fragmentu, łączymy je
                     if (Math.Abs(current.Y - fragment.Y) < Tolerance && fragment.X - (current.X + current.Text.Length * 5) < Tolerance)
                     {
                         current.Text += fragment.Text;
@@ -146,11 +148,4 @@ namespace PDFReaderAndWrite
             return null;
         }
     }
-    public class TextLocation
-    {
-        public float X { get; set; }
-        public float Y { get; set; }
-        public string Text { get; set; }
-    }
-
 }
