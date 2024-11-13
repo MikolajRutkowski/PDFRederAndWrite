@@ -10,22 +10,24 @@ namespace PDFReaderAndWrite
        
             static void Main(string[] args)
             {
-                string inputPath = "aaa.pdf";   // Ścieżka do istniejącego pliku PDF
-                string outputPath = "output.pdf"; // Ścieżka do nowego pliku z dodatkowymi elementami
+                string inputPath = "TESTC2.pdf";   // Ścieżka do istniejącego pliku PDF
+                string outputPath = "outputtttttt.pdf"; // Ścieżka do nowego pliku z dodatkowymi elementami
 
                 // Otwieramy istniejący plik PDF i zapisujemy zmiany do nowego pliku
-                using (PdfReader reader = new PdfReader(inputPath))
-                using (PdfWriter writer = new PdfWriter(outputPath))
-                using (PdfDocument pdf = new PdfDocument(reader, writer))
-                {
+                
                     List<PdfText> pdfTexts = new List<PdfText>();
-                    pdfTexts = PdfHelper.ExtractTextWithCoordinates(inputPath);
-                    foreach (PdfText pdfText in pdfTexts)
+                     var lisa = PdfHelper.ExtractFormFields(inputPath);
+                    foreach (var pdfTextt in lisa)
                     {
-                    Console.WriteLine(pdfText.Text + " " + pdfText.X + " " + pdfText.Y + " ");
+                    Console.WriteLine(pdfTextt);
+                    if("ZR" == pdfTextt)
+                    {
+                    Console.WriteLine("Tu zmiana");
+                    PdfHelper.ReplaceTextInFormFields(inputPath,outputPath, "ZR", "TT");
                     }
-                    //PdfHelper.AddText(pdf, "Dodatkowy tekst", 150, 200);
-                }
+                    }
+                    
+                
 
                 
             }
